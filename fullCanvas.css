@@ -1,0 +1,15 @@
+body {
+  margin: 0;
+}
+canvas {
+  display: block;
+  top: 0;
+  left: 0;
+  overflow: hidden;
+}
+
+#overlay {
+  position: fixed;
+  top: 25px;
+  left: 25px;
+}
