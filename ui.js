@@ -191,7 +191,7 @@ canvas.addEventListener('mousemove', function(event) {
 });
 
 canvas.addEventListener('wheel', function(event) {
-  if (event.shiftKey || event.ctrlKey){
+  if (event.shiftKey || event.ctrlKey) {
     global_zoom *= 1 + (event.deltaY / 50);
     gl.uniform1f(locationOfGlobalZoom, global_zoom);
     event.preventDefault();
@@ -202,7 +202,7 @@ canvas.addEventListener('wheel', function(event) {
   gl.drawArrays(primitiveType, offset, count);
 });
 
-window.onresize = function(){
+window.onresize = function() {
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
   gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
@@ -211,10 +211,18 @@ window.onresize = function(){
 
 let openFile = function(file) {
   let reader = new FileReader();
-  reader.onload = function(){
+  reader.onload = function() {
     image.src = reader.result;
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
-    gl.drawArrays(primitiveType, offset, count);
+    setTimeout(() => {
+      console.log('image', image);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+      gl.drawArrays(primitiveType, offset, count);
+    }, 500);
   };
   reader.readAsDataURL(file.target.files[0]);
 };
+
+setTimeout(() => {
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+  gl.drawArrays(primitiveType, offset, count);
+}, 1000);
