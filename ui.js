@@ -192,7 +192,7 @@ canvas.addEventListener('mousemove', function(event) {
 
 canvas.addEventListener('wheel', function(event) {
   if (event.shiftKey || event.ctrlKey) {
-    global_zoom *= 1 + (event.deltaY / 50);
+    global_zoom *= 1 + (Math.sign(event.deltaY) / 20);
     gl.uniform1f(locationOfGlobalZoom, global_zoom);
     event.preventDefault();
   } else {
