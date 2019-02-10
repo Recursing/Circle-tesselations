@@ -1,15 +1,16 @@
-let canvas = document.getElementById("canvas");
-SIDE = 950.001;
+"use strict";
+
+const canvas = document.getElementById("canvas");
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-let gl = canvas.getContext("webgl");
+const gl = canvas.getContext("webgl");
 
 if (!gl) {
   alert("No webgl found :(");
 }
 
-let vertexShaderSource = `
+const vertexShaderSource = `
 
 // an attribute is an input (in) to a vertex shader.
 // It will receive data from a buffer
@@ -24,8 +25,7 @@ void main() {
 }
 `;
 
-let fragmentShaderSource = `
-#define SIDE %SIDE%
+const fragmentShaderSource = `
 
 // fragment shaders don't have a default precision so we need
 // to pick one. mediump is a good default. It means "medium precision"
@@ -42,22 +42,20 @@ uniform float global_zoom;
 uniform sampler2D u_image;
 
 void main() {
-  vec2 pos = ((gl_FragCoord.xy + global_translation) / SIDE - 0.5) * global_zoom;
-  float l = length(pos);
+  vec2 global_pos = (gl_FragCoord.xy - global_translation) * global_zoom;
+  float l = length(global_pos);
   float s = tan(atan(l) * 2.0) / l;
-  vec2 tr = texture_translation / SIDE * 2.0;
-  gl_FragColor = texture2D(u_image, vec2(1.0) - mod(pos * s + tr, texture_zoom) / texture_zoom);
+  vec2 texture_pos = mod(global_pos * s - texture_translation, texture_zoom) / texture_zoom;
+  gl_FragColor = texture2D(u_image, texture_pos);
 }
 `;
 
-fragmentShaderSource = fragmentShaderSource.replace(/%SIDE%/g, SIDE);
-
 // Compile vertex or fragment shader
 function createShader(gl, type, source) {
-  let shader = gl.createShader(type);
+  const shader = gl.createShader(type);
   gl.shaderSource(shader, source);
   gl.compileShader(shader);
-  let success = gl.getShaderParameter(shader, gl.COMPILE_STATUS);
+  const success = gl.getShaderParameter(shader, gl.COMPILE_STATUS);
   if (success) {
     return shader;
   }
@@ -67,16 +65,16 @@ function createShader(gl, type, source) {
   gl.deleteShader(shader);
 }
 
-let vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
-let fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
+const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
+const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
 
 // Link vertex and fragment shaders
 function createProgram(gl, vertexShader, fragmentShader) {
-  let program = gl.createProgram();
+  const program = gl.createProgram();
   gl.attachShader(program, vertexShader);
   gl.attachShader(program, fragmentShader);
   gl.linkProgram(program);
-  let success = gl.getProgramParameter(program, gl.LINK_STATUS);
+  const success = gl.getProgramParameter(program, gl.LINK_STATUS);
   if (success) {
     return program;
   }
@@ -86,19 +84,19 @@ function createProgram(gl, vertexShader, fragmentShader) {
   gl.deleteProgram(program);
 }
 
-let program = createProgram(gl, vertexShader, fragmentShader);
+const program = createProgram(gl, vertexShader, fragmentShader);
 
-let positionAttributeLocation = gl.getAttribLocation(program, "a_position");
-let locationOfTextureTranslation = gl.getUniformLocation(program, "texture_translation");
-let locationOfTextureZoom = gl.getUniformLocation(program, "texture_zoom");
-let locationOfGlobalTranslation = gl.getUniformLocation(program, "global_translation");
-let locationOfGlobalZoom = gl.getUniformLocation(program, "global_zoom");
+const positionAttributeLocation = gl.getAttribLocation(program, "a_position");
+const locationOfTextureTranslation = gl.getUniformLocation(program, "texture_translation");
+const locationOfTextureZoom = gl.getUniformLocation(program, "texture_zoom");
+const locationOfGlobalTranslation = gl.getUniformLocation(program, "global_translation");
+const locationOfGlobalZoom = gl.getUniformLocation(program, "global_zoom");
 
-let positionBuffer = gl.createBuffer();
+const positionBuffer = gl.createBuffer();
 
 gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
 
-let positions = [
+const positions = [
   -1, -1,
   -1, 1,
   1, -1,
@@ -106,16 +104,24 @@ let positions = [
   1, 1,
   1, -1,
 ];
-let texture_translation = {
+
+const texture_translation = {
   x: 0,
   y: 0
 };
-global_translation = {
-  x: 0,
-  y: 0
+
+const center = {
+  x: canvas.width / 2,
+  y: canvas.height / 2
 };
+
+const global_translation = {
+  x: center.x,
+  y: center.y
+};
+
 let texture_zoom = 1.0;
-let global_zoom = 3.0;
+let global_zoom = 3.0 / Math.min(canvas.width, canvas.height);
 
 gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
 
@@ -133,18 +139,14 @@ gl.clearColor(0.1, 0.5, 0, 1);
 gl.clear(gl.COLOR_BUFFER_BIT);
 gl.useProgram(program);
 let image = new Image();
-image.src = "image.jpg";
-let texture = gl.createTexture();
+const texture = gl.createTexture();
 gl.bindTexture(gl.TEXTURE_2D, texture);
 
 // Set the parameters so we can render any size image.
 gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
 gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-
-// Upload the image into the texture.
-gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 
 gl.uniform2f(locationOfTextureTranslation, texture_translation.x, texture_translation.y);
 gl.uniform2f(locationOfGlobalTranslation, global_translation.x, global_translation.y);
@@ -172,32 +174,43 @@ let oldTime = 0;
 canvas.addEventListener('mousemove', function(event) {
   if (dragStart && (Date.now() - oldTime > 50)) {
     oldTime = Date.now();
-    dragEnd = {
+    const dragEnd = {
       x: event.pageX,
       y: event.pageY
     };
     if (event.buttons == 1) {
-      texture_translation.x += dragEnd.x - dragStart.x;
-      texture_translation.y += dragEnd.y - dragStart.y;
-      gl.uniform2f(locationOfTextureTranslation, -texture_translation.x, texture_translation.y);
+      texture_translation.x += (dragEnd.x - dragStart.x) * global_zoom;
+      texture_translation.y -= (dragEnd.y - dragStart.y) * global_zoom; // y has opposite sign
+      gl.uniform2f(locationOfTextureTranslation, texture_translation.x, texture_translation.y);
     } else {
       global_translation.x += dragEnd.x - dragStart.x;
-      global_translation.y += dragEnd.y - dragStart.y;
-      gl.uniform2f(locationOfGlobalTranslation, -global_translation.x, global_translation.y);
+      global_translation.y -= dragEnd.y - dragStart.y; // y has opposite sign
+      gl.uniform2f(locationOfGlobalTranslation, global_translation.x, global_translation.y);
     }
     dragStart = dragEnd;
     gl.drawArrays(primitiveType, offset, count);
   }
 });
 
+canvas.oncontextmenu = () => false;
+
 canvas.addEventListener('wheel', function(event) {
+  const zoom_factor = 1 + (event.deltaY / 500); //TODO cross broswer thing
+  const ly = canvas.height - event.pageY; // ↑ y
+
   if (event.shiftKey || event.ctrlKey) {
-    global_zoom *= 1 + (Math.sign(event.deltaY) / 20);
+    global_zoom *= zoom_factor;
+    global_translation.x = (global_translation.x - event.pageX) / zoom_factor + event.pageX;
+    global_translation.y = (global_translation.y - ly) / zoom_factor + ly;
     gl.uniform1f(locationOfGlobalZoom, global_zoom);
+    gl.uniform2f(locationOfGlobalTranslation, global_translation.x, global_translation.y);
     event.preventDefault();
   } else {
-    texture_zoom *= 1 + (event.deltaY / 50);
+    texture_zoom *= zoom_factor;
+    texture_translation.x *= zoom_factor;
+    texture_translation.y *= zoom_factor;
     gl.uniform1f(locationOfTextureZoom, texture_zoom);
+    gl.uniform2f(locationOfTextureTranslation, texture_translation.x, texture_translation.y);
   }
   gl.drawArrays(primitiveType, offset, count);
 });
@@ -209,20 +222,20 @@ window.onresize = function() {
   gl.drawArrays(primitiveType, offset, count);
 };
 
-let openFile = function(file) {
-  let reader = new FileReader();
+const openFile = function(file) {
+  const reader = new FileReader();
   reader.onload = function() {
     image.src = reader.result;
-    setTimeout(() => {
-      console.log('image', image);
+    image.addEventListener('load', () => {
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
       gl.drawArrays(primitiveType, offset, count);
-    }, 500);
+    });
   };
   reader.readAsDataURL(file.target.files[0]);
 };
 
-setTimeout(() => {
+image.src = "image.jpg";
+image.addEventListener('load', () => {
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
   gl.drawArrays(primitiveType, offset, count);
-}, 1000);
+});
